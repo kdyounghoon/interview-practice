@@ -1,0 +1,36 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Docker image
+      run: |
+        docker build -t gcr.io/${{ secrets.GCP_PROJECT }}/nodejs-app:latest .
+        echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | docker login -u _json_key --password-stdin https://gcr.io
+        docker push gcr.io/${{ secrets.GCP_PROJECT }}/nodejs-app:latest
+
+    - name: Deploy to GKE
+      uses: google-github-actions/deploy-gke@v0.5.0
+      with:
+        cluster_name: my-gke-cluster
+        location: us-central1
+        manifest_paths: k8s/deployment.yaml
+        project_id: ${{ secrets.GCP_PROJECT }}
